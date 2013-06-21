@@ -1,0 +1,83 @@
+#!/usr/bin/env python
+
+import jira.client
+import jira.exceptions
+import requests.exceptions
+import sys
+import signal
+import argparse
+import getpass
+
+def main():
+    args = parse_arguments()
+    try:
+        j = jira.client.JIRA(
+            options={
+                'server': args.server
+            },
+            basic_auth=(
+                args.user,
+                getpass.getpass(
+                    'Password for %(user)s@%(server)s:' % {
+                        'user': args.user,
+                        'server': args.server
+                    }
+                )
+            )
+        )
+        do_replace_label(j, args.old, args.new)
+    except jira.exceptions.JIRAError as e:
+        sys.stderr.write("ERROR: JIRA server found but login failed. Check your credentials.\n")
+        exit(1)
+    except requests.exceptions.ConnectionError as e:
+        sys.stderr.write("ERROR: Could not connect to JIRA server.")
+        exit(1)
+ 
+def do_replace_label(j, old_label, new_label):
+    issues = j.search_issues('labels in ("%s")' % old_label)
+
+    for issue in issues:
+        labels = [new_label if label == old_label else label for label in issue.fields.labels]
+        try:
+            issue.update(labels=labels)
+            print 'Relabelled %s: %s with %s' % (issue.key, issue.fields.summary, ', '.join(issue.fields.labels))
+        except jira.exceptions.JIRAError as e:
+            sys.stderr.write(
+                "ERROR: Could not relabel %(key)s: %(summary)s. \n%(error)s\n" % {
+                    'key': issue.key,
+                    'summary': issue.fields.summary,
+                    'error': e.text
+                }
+            )
+        
+def parse_arguments():
+    parser = argparse.ArgumentParser(
+        description='Replace a label in JIRA without changing other labels applied to an issue.'
+    )
+    parser.add_argument(
+       'server',
+       help='JIRA server'
+    )
+    parser.add_argument(
+        'old',
+        help='Old label'
+    )
+    parser.add_argument(
+        'new',
+        help='New label'
+    )
+    parser.add_argument(
+        '-u',
+        '--user',
+        help='Username for HTTP Basic Auth (defaults to login user)',
+        default=getpass.getuser()
+    )
+
+    return parser.parse_args()
+
+def handle_signal_interrupt(signal, frame):
+    sys.exit(0)
+
+if __name__ == '__main__':
+    signal.signal(signal.SIGINT, handle_signal_interrupt)
+    sys.exit(main())
