@@ -7,6 +7,7 @@ import sys
 import signal
 import argparse
 import getpass
+import jiralabels
 
 def main():
     args = parse_arguments()
@@ -32,24 +33,33 @@ def main():
     except requests.exceptions.ConnectionError as e:
         sys.stderr.write("ERROR: Could not connect to JIRA server.")
         exit(1)
- 
-def do_replace_label(j, old_label, new_label):
-    issues = j.search_issues('labels in ("%s")' % old_label)
 
-    for issue in issues:
-        labels = [new_label if label == old_label else label for label in issue.fields.labels]
-        try:
-            issue.update(labels=labels)
-            print 'Relabelled %s: %s with %s' % (issue.key, issue.fields.summary, ', '.join(issue.fields.labels))
-        except jira.exceptions.JIRAError as e:
-            sys.stderr.write(
-                "ERROR: Could not relabel %(key)s: %(summary)s. \n%(error)s\n" % {
-                    'key': issue.key,
-                    'summary': issue.fields.summary,
-                    'error': e.text
-                }
-            )
-        
+def print_change(issue, old_labels):
+    print 'Relabelled %s: %s with %s; was previously labeled %s' % (
+        issue.key,
+        issue.fields.summary,
+        ', '.join(issue.fields.labels),
+        ', '.join(old_labels)
+    )
+
+def handle_label_event(event):
+    print_change(event.issue, event.old_labels)
+
+def handle_error_event(event):
+    sys.stderr.write(
+        "ERROR: Could not relabel %(key)s: %(summary)s. JIRA error details:\n%(error)s\n" % {
+            'key': event.issue.key,
+            'summary': event.issue.fields.summary,
+            'error': event.exception.text
+        }
+    )
+
+def do_replace_label(j, old_label, new_label):
+    jl = jiralabels.JiraLabels()
+    jl.add_listener('LabelEvent', handle_label_event)
+    jl.add_listener('ErrorEvent', handle_error_event)
+    jl.replace_label(j, old_label, new_label)
+            
 def parse_arguments():
     parser = argparse.ArgumentParser(
         description='Replace a label in JIRA without changing other labels applied to an issue.'
