@@ -28,3 +28,17 @@ class TestJiraLabels(unittest.TestCase):
         self.jiralabels.add_label_by_query(j, jql, label)
         j.search_issues.assert_called_once_with(jql)
         issue.update.assert_called_once_with(labels=['alpha', 'beta', 'gamma', 'somelabel'])
+
+    def test_remove_label_by_query_with_results(self):
+        j = Mock()
+        jql = 'assignee = john.doe'
+        label = 'removeme'
+        issue = Mock()
+        issue.fields = Mock()
+        issue.fields.labels = ['alpha', 'removeme', 'gamma']
+        issue.update = Mock() 
+        j.search_issues = Mock(return_value = [issue] )
+        self.jiralabels.remove_label_by_query(j, jql, label)
+        j.search_issues.assert_called_once_with(jql)
+        issue.update.assert_called_once_with(labels=['alpha', 'gamma'])
+

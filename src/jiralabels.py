@@ -44,13 +44,11 @@ class JiraLabels(object):
                 new_labels.append(label)
             self._label_issue(issue, new_labels)
 
-    def remove_label_by_query(self, j, jql, label):
+    def remove_label_by_query(self, j, jql, label_to_remove):
         issues = j.search_issues(jql)
         for issue in issues:
             old_labels = issue.fields.labels
-            new_labels = issue.fields.labels
-            if label in issue.fields.labels:
-                new_labels.append(label)
+            new_labels = [label for label in issue.fields.labels if label != label_to_remove]
             self._label_issue(issue, new_labels)
 
     def replace_label(self, j, old_label, new_label):
