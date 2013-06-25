@@ -1,3 +1,4 @@
 build
 debian
 deb_dist
+*.pyc
