@@ -34,31 +34,27 @@ def main():
         sys.stderr.write("ERROR: Could not connect to JIRA server.")
         exit(1)
 
-def print_change(issue, old_labels):
-    print 'Relabelled %s: %s with %s; was previously labeled %s' % (
-        issue.key,
-        issue.fields.summary,
-        ', '.join(issue.fields.labels),
-        ', '.join(old_labels)
-    )
-
-def handle_label_event(event):
-    print_change(event.issue, event.old_labels)
-
-def handle_error_event(event):
-    sys.stderr.write(
-        "ERROR: Could not relabel %(key)s: %(summary)s. JIRA error details:\n%(error)s\n" % {
-            'key': event.issue.key,
-            'summary': event.issue.fields.summary,
-            'error': event.exception.text
-        }
-    )
-
 def do_replace_label(j, old_label, new_label):
-    jl = jiralabels.JiraLabels()
-    jl.add_listener('LabelEvent', handle_label_event)
-    jl.add_listener('ErrorEvent', handle_error_event)
-    jl.replace_label(j, old_label, new_label)
+    update_labels(jiralabels.JiraLabels().replace_label(j, old_label, new_label))
+
+def update_labels(generator):
+    for (issue, original_labels, exception) in generator:
+        if exception:
+            sys.stderr.write(
+                "ERROR: Could not relabel {key}: {summary}. JIRA error details:\n{error}\n".format(
+                    key=issue.key,
+                    summary=issue.fields.summary,
+                    error=exception.text
+                )
+            )
+        else:
+            print 'Relabelled {key}: {summary} with {new_labels}; original labels: {original_labels}'.format(
+                key=issue.key,
+                summary=issue.fields.summary,
+                new_labels=', '.join(issue.fields.labels),
+                original_labels=', '.join(original_labels)
+            )
+
             
 def parse_arguments():
     parser = argparse.ArgumentParser(

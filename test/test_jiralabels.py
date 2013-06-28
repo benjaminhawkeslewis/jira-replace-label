@@ -13,7 +13,9 @@ class TestJiraLabels(unittest.TestCase):
         jql = 'assignee = john.doe'
         label = 'somelabel'
         j.search_issues = Mock(return_value = [])
-        self.jiralabels.add_label_by_query(j, jql, label)
+
+        list(self.jiralabels.add_label_by_query(j, jql, label))
+
         j.search_issues.assert_called_once_with(jql)
 
     def test_add_label_by_query_with_results(self):
@@ -25,7 +27,9 @@ class TestJiraLabels(unittest.TestCase):
         issue.fields.labels = ['alpha', 'beta', 'gamma']
         issue.update = Mock() 
         j.search_issues = Mock(return_value = [issue])
-        self.jiralabels.add_label_by_query(j, jql, label)
+
+        self.jiralabels.add_label_by_query(j, jql, label).next()
+
         j.search_issues.assert_called_once_with(jql)
         issue.update.assert_called_once_with(labels=['alpha', 'beta', 'gamma', 'somelabel'])
 
@@ -38,7 +42,9 @@ class TestJiraLabels(unittest.TestCase):
         issue.fields.labels = ['alpha', label_to_remove, 'gamma']
         issue.update = Mock() 
         j.search_issues = Mock(return_value = [issue])
-        self.jiralabels.remove_label_by_query(j, jql, label_to_remove)
+
+        self.jiralabels.remove_label_by_query(j, jql, label_to_remove).next()
+
         j.search_issues.assert_called_once_with(jql)
         issue.update.assert_called_once_with(labels=['alpha', 'gamma'])
 
@@ -51,8 +57,8 @@ class TestJiraLabels(unittest.TestCase):
         issue.fields.labels = ['alpha', old_label, 'gamma']
         issue.update = Mock() 
         j.search_issues = Mock(return_value = [issue])
-        self.jiralabels.replace_label(j, old_label, new_label)
+
+        self.jiralabels.replace_label(j, old_label, new_label).next()
+            
         j.search_issues.assert_called_once_with('labels in ("old")')
         issue.update.assert_called_once_with(labels=['alpha', new_label, 'gamma'])
-
-
