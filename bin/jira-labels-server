@@ -1,0 +1,132 @@
+#!/usr/bin/env python
+
+import tornado.ioloop
+import tornado.web
+import argparse
+import pystache
+import jiralabels
+import jira.client
+import jira.exceptions
+
+class MainHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.write(pystache.render("""
+<!doctype html>
+<meta charset=utf8>
+<title>JIRA label manager</title>
+<style>
+body {
+    font-family: Helvetica, Arial, sans;
+}
+form div {
+    margin: 1em 0;
+}
+label {
+    font-weight: bold;
+}
+form {
+    float: left;
+}
+form div {
+    table-layout: auto;
+    display: table-row;
+    border-collapse: collapse;
+    margin: 0;
+}
+.textbox label,
+.textbox .widget {
+    border-spacing: 10px;
+    display: table-cell;
+    padding-top: 1em;
+}
+.textbox label {
+    padding-right: 1em;
+}
+form .controls {
+    display: block;
+    text-align: right;
+    margin-top: 1em
+}
+
+</style>
+<h1 id=replace-label-title>Replace label</h1>
+<form aria-labelledby=replace-label-title method=POST>
+<div class="field textbox">
+  <label for=old>Old label</label>
+  <span class=widget><input id=old></span>
+</div>
+<div class="field textbox">
+  <label for=new>New label</label>
+  <span class=widget><input id=new></span>
+</div>
+<div class="field textbox">
+  <label for=user>User</label>
+  <span class=widget><input id=user></span>
+</div>
+<div class="field textbox">
+  <label for=user>Password</label>
+  <span class=widget><input id=password></span>
+</div>
+<div class=controls>
+  <input type=submit value=Replace>
+</div>
+""", {
+     }))
+
+    def post(self):
+        old = self.get_argument('old')
+        new = self.get_argument('new')
+        j = jira.client.JIRA(
+            options={
+                'server': self.jira_url
+            },
+            basic_auth=(
+                self.get_argument('user'),
+                self.get_argument('password')
+            )
+        )
+        generator = jiralabels.replace_label(j, old_label, new_label)
+        for (issue, original_labels, exception) in generator:
+            if exception:
+                self.write(
+                    "<p>ERROR: Could not relabel {key}: {summary}. JIRA error details:\n{error}\n".format(
+                        key=issue.key,
+                        summary=issue.fields.summary,
+                        error=exception.text
+                ))
+            else:
+                self.write('<p>Relabelled {key}: {summary} with {new_labels}; original labels: {original_labels}'.format(
+                    key=issue.key,
+                    summary=issue.fields.summary,
+                    new_labels=', '.join(issue.fields.labels),
+                    original_labels=', '.join(original_labels)
+                ))
+
+application = tornado.web.Application([
+    (r"/", MainHandler),
+])
+
+def parse_arguments():
+    parser = argparse.ArgumentParser(
+        description='JIRA label management server'
+    )
+    parser.add_argument(
+       'server',
+       help='JIRA server'
+    )
+    parser.add_argument(
+        '-p',
+        '--port',
+        help='Port to listen on (defaults to 8888)',
+        default=8888
+    )
+
+    return parser.parse_args()
+   
+if __name__ == "__main__":
+    args = parse_arguments()
+    application.listen(args.port)
+    jira_url = args.server
+    tornado.ioloop.IOLoop.instance().start()
+
+
