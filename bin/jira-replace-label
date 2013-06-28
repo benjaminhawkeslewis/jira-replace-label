@@ -35,7 +35,7 @@ def main():
         exit(1)
 
 def do_replace_label(j, old_label, new_label):
-    update_labels(jiralabels.JiraLabels().replace_label(j, old_label, new_label))
+    update_labels(jiralabels.replace_label(j, old_label, new_label))
 
 def update_labels(generator):
     for (issue, original_labels, exception) in generator:
